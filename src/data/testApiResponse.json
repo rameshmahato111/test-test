@@ -1,0 +1,136 @@
+{
+  "success": true,
+  "itinerary_data": {
+    "total_distance": 1250.5,
+    "total_duration": 18.5,
+    "total_days": 4,
+    "start_date": "2025-09-06",
+    "end_date": "2025-09-10",
+    "budget": "economic",
+    "travel_group_type": "solo",
+    "mode_of_transport": "car",
+    "interests": "Adventure",
+    "daily_drive_distance": 400,
+    "route_geometry": {
+      "coordinates": [
+        [-88.087556, 41.773351],
+        [-87.6298, 41.8781],
+        [-87.6298, 41.8781],
+        [-87.6298, 41.8781],
+        [-87.6298, 41.8781],
+        [-87.6298, 41.8781],
+        [-72.302091, 42.148076]
+      ],
+      "type": "LineString"
+    },
+    "daily_plan": [
+      {
+        "day": 1,
+        "cities": [
+          {
+            "name": "Chicago",
+            "coordinates": [-87.6298, 41.8781],
+            "place_type": "Major City",
+            "next_segment": {
+              "name": "Chicago to Milwaukee",
+              "distance_km": 150.2,
+              "duration_hours": 2.5
+            },
+            "suggested_activities": [
+              {
+                "id": 1,
+                "name": "Millennium Park",
+                "description": "Visit the iconic Cloud Gate sculpture and enjoy the beautiful park",
+                "images": {
+                  "urls": [
+                    {
+                      "resource": "/images/city-1.png",
+                      "sizeType": "medium"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": 2,
+                "name": "Navy Pier",
+                "description": "Explore the famous pier with restaurants and attractions",
+                "images": {
+                  "urls": [
+                    {
+                      "resource": "/images/city-2.png",
+                      "sizeType": "medium"
+                    }
+                  ]
+                }
+              }
+            ],
+            "suggested_accommodations": [
+              {
+                "id": 1,
+                "name": "Chicago Downtown Hotel",
+                "description": "Comfortable hotel in the heart of downtown Chicago",
+                "address": {
+                  "content": "123 Michigan Ave, Chicago, IL",
+                  "coordinates": {
+                    "latitude": 41.8781,
+                    "longitude": -87.6298
+                  }
+                },
+                "hotel_images": "/images/card-1.png"
+              }
+            ]
+          }
+        ],
+        "day_total_distance": 150.2,
+        "day_total_duration": 2.5
+      },
+      {
+        "day": 2,
+        "cities": [
+          {
+            "name": "Milwaukee",
+            "coordinates": [-87.9065, 43.0389],
+            "place_type": "City",
+            "next_segment": {
+              "name": "Milwaukee to Detroit",
+              "distance_km": 280.5,
+              "duration_hours": 4.2
+            },
+            "suggested_activities": [
+              {
+                "id": 3,
+                "name": "Milwaukee Art Museum",
+                "description": "Explore contemporary and classic art collections",
+                "images": {
+                  "urls": [
+                    {
+                      "resource": "/images/city-3.png",
+                      "sizeType": "medium"
+                    }
+                  ]
+                }
+              }
+            ],
+            "suggested_accommodations": [
+              {
+                "id": 2,
+                "name": "Milwaukee Riverside Hotel",
+                "description": "Modern hotel with great city views",
+                "address": {
+                  "content": "456 Water St, Milwaukee, WI",
+                  "coordinates": {
+                    "latitude": 43.0389,
+                    "longitude": -87.9065
+                  }
+                },
+                "hotel_images": "/images/card-2.png"
+              }
+            ]
+          }
+        ],
+        "day_total_distance": 280.5,
+        "day_total_duration": 4.2
+      }
+    ]
+  }
+}

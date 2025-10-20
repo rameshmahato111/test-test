@@ -1,0 +1,34 @@
+User-agent: *
+Allow: /
+
+# Disallow authentication and admin pages
+Disallow: /sign-in
+Disallow: /register
+Disallow: /login
+Disallow: /reset-password
+Disallow: /opt-verify
+Disallow: /delete
+Disallow: /oauth
+
+# Disallow API routes
+Disallow: /api/
+
+# Disallow private user areas
+Disallow: /bucketlist
+Disallow: /booking-detail
+Disallow: /payment
+Disallow: /settings
+
+# Allow important pages
+Allow: /search
+Allow: /city
+Allow: /detail
+Allow: /travel-hub
+Allow: /privacy-policy
+Allow: /terms-and-conditions
+
+# Sitemap location
+Sitemap: https://exploreden.com.au/sitemap.xml
+
+# Crawl delay
+Crawl-delay: 1 

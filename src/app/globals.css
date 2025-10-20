@@ -1,0 +1,357 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-poppins);
+}
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #1A1A1A;
+    --primary-color-00: #FEF1F6;
+    --primary-color-50: #FEE5EF;
+    --primary-color-100: #FFCAE1;
+    --primary-color-200: #FF9FC7;
+    --primary-color-300: #FF63A1;
+    --primary-color-400: #FF4083;
+    --primary-color-500: #DB4076;
+    --primary-color-600: #C21752;
+    --primary-color-700: #AD0741;
+    --primary-color-800: #AD0741;
+    --primary-color-900: #7A2339;
+    --gray-color-50: #FCFCFC;
+    --gray-color-100: #F2F1F1;
+    --gray-color-200: #E3E0E0;
+    --gray-color-300: #D1D1D1;
+    --gray-color-400: #A6A6A6;
+    --gray-color-500: #858585;
+    --gray-color-600: #7A7A7A;
+    --gray-color-700: #666666;
+    --gray-color-800: #3D3D3D;
+    --gray-color-900: #000000;
+    --blue-color-50: #40130F;
+    --blue-color-100: #7B1BFA;
+    --blue-color-200: #6F21D6;
+    --yellow-color-50: #FFD900;
+    --green-color-0: #1AC057;
+  }
+
+  .dark {
+    --background: #1A1A1A;
+    --foreground: #ffffff;
+    --primary-color-00: #40130F;
+    --primary-color-50: #7A2339;
+    --primary-color-100: #AD0741;
+    --primary-color-200: #C21752;
+    --primary-color-300: #DB4076;
+    --primary-color-400: #FF4083;
+    --primary-color-500: #FF63A1;
+    --primary-color-600: #FF9FC7;
+    --primary-color-700: #FFCAE1;
+    --primary-color-800: #FEE5EF;
+    --primary-color-900: #FEF1F6;
+    --blue-color-50: #FEF1F6;
+    --gray-color-50: #3D3D3D;
+    --gray-color-100: #666666;
+    --gray-color-200: #7A7A7A;
+    --gray-color-300: #858585;
+    --gray-color-400: #A6A6A6;
+    --gray-color-500: #D1D1D1;
+    --gray-color-600: #E3E0E0;
+    --gray-color-700: #F2F1F1;
+    --gray-color-800: #FCFCFC;
+    --gray-color-900: #ffffff;
+    --yellow-color-50: #FFD900;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.main-loader {
+  --d: 22px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  color: var(--primary-color-400);
+  box-shadow:
+    calc(1*var(--d)) calc(0*var(--d)) 0 0,
+    calc(0.707*var(--d)) calc(0.707*var(--d)) 0 1px,
+    calc(0*var(--d)) calc(1*var(--d)) 0 2px,
+    calc(-0.707*var(--d)) calc(0.707*var(--d)) 0 3px,
+    calc(-1*var(--d)) calc(0*var(--d)) 0 4px,
+    calc(-0.707*var(--d)) calc(-0.707*var(--d))0 5px,
+    calc(0*var(--d)) calc(-1*var(--d)) 0 6px;
+  animation: l27 1s infinite steps(8);
+}
+
+@keyframes l27 {
+  100% {
+    transform: rotate(1turn)
+  }
+}
+
+/* Blog Section Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Download Section Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes floatDelayed {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(1deg);
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes counter {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.8s ease-out forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: floatDelayed 4s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+.animate-twinkle {
+  animation: twinkle 2s ease-in-out infinite;
+}
+
+.animate-counter {
+  animation: counter 0.8s ease-out forwards;
+}
+
+.mapboxgl-ctrl-bottom-right,
+.mapboxgl-ctrl-bottom-left {
+  display: none;
+}
+
+/* Add these styles after your existing toast styles */
+@layer components {
+  .toaster {
+    --toast-background: var(--background);
+    --toast-border: var(--gray-color-200);
+    --toast-text: var(--foreground);
+  }
+
+  .toast-success {
+    --toast-background: var(--green-color-0);
+    --toast-text: white;
+  }
+
+  .toast-error {
+    --toast-background: var(--primary-color-400);
+    --toast-text: white;
+  }
+
+  .toast-warning {
+    --toast-background: var(--yellow-color-50);
+    --toast-text: var(--foreground);
+  }
+
+  .toast {
+    background-color: var(--toast-background);
+    border: 1px solid var(--toast-border);
+    color: var(--toast-text);
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Navbar Animations */
+@keyframes slideInTop {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+  }
+}
+
+/* Navbar Animation Classes */
+.animate-slide-in-top {
+  animation: slideInTop 0.6s ease-out forwards;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+/* Enhanced hover effects */
+.navbar-item-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar-item-hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.navbar-item-hover:hover::before {
+  left: 100%;
+}
+
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
