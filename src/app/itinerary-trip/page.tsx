@@ -1,5 +1,5 @@
 "use client"
-import React from "react"
+import React, { Suspense } from "react"
 import { HotelSearchSection } from "@/components/Itinerary/Itinerary-trip/hotel-search-section"
 import { Pagination } from "@/components/Itinerary/Itinerary-trip/pagination"
 import { SectionHeader } from "@/components/Itinerary/Itinerary-trip/section-header"
@@ -173,6 +173,7 @@ export default function Home() {
   }
 
   return (
+    <Suspense fallback={null}>
     <div className="min-h-screen bg-gray-50">
       {/* Header with background image */}
       <div className="relative h-48 md:h-64 overflow-hidden">
@@ -283,5 +284,6 @@ export default function Home() {
         )}
       </div>
     </div>
+    </Suspense>
   )
 }
