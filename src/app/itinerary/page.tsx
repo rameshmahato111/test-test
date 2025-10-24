@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { TravelItinerary } from "@/components/Itinerary/itinerary";
 import { Step1 } from "@/components/Itinerary/travel-preference/step-one-modified";
@@ -63,6 +63,7 @@ function RoadTripPlannerContent() {
   const searchParams = useSearchParams()
   const currentStep = Number.parseInt(searchParams.get("step") || "1")
   const showResults = searchParams.get("results") === "true"
+  const auto = searchParams.get("auto") === "1"
 
   const [tripData, setTripData] = useState<TripData>({
     starting_point: { latitude: 0, longitude: 0 },
@@ -81,16 +82,47 @@ function RoadTripPlannerContent() {
     destination_location: ""
   })
 
+  // Restore any saved draft from localStorage (e.g., when user was redirected to login)
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const draft = localStorage.getItem('itinerary_draft')
+        if (draft) {
+          const parsed = JSON.parse(draft)
+          setTripData((prev) => ({ ...prev, ...parsed }))
+          localStorage.removeItem('itinerary_draft')
+        }
+      }
+    } catch (e) {
+      // ignore parse/storage errors
+    }
+  }, [])
+
   const [isLoading, setIsLoading] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [routeOptions, setRouteOptions] = useState<RouteOption[]>([])
   const [showRouteSelection, setShowRouteSelection] = useState(false)
-  const { token: ctxToken } = useAuth();
+  const { token: ctxToken, isAuthenticated } = useAuth();
+  const autoTriggeredRef = useRef(false)
 
   const updateTripData = (data: Partial<TripData>) => {
     setTripData((prev) => ({ ...prev, ...data }))
     setValidationErrors([])
   }
+
+  // If returning from login with a filled draft and auto flag, auto-advance by calling possible routes on step 1
+  useEffect(() => {
+    if (auto && currentStep === 1 && !autoTriggeredRef.current) {
+      const errs = validateStep(1)
+      if (errs.length === 0) {
+        autoTriggeredRef.current = true
+        // triggers getPossibleRoutes via nextStep for step 1
+        nextStep()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, currentStep, tripData])
+
 
   // Update step states for progress bar
   const updatedSteps = steps.map((step, index) => ({

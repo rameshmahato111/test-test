@@ -85,6 +85,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         router.push("/opt-verify");
         return;
       }
+      // If we have a stored post-login destination, honor it first
+      try {
+        const returnTo = typeof window !== 'undefined' ? localStorage.getItem('auth_return_to') : null;
+        if (returnTo) {
+          saveToLocalStorage(USER_KEY, JSON.stringify(response));
+          localStorage.removeItem('auth_return_to');
+          router.push(returnTo);
+          return;
+        }
+      } catch (e) {
+        // ignore storage errors
+      }
       // Check if user has any interests
       const interests = await InterestService.getInterests(newToken);
       if (

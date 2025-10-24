@@ -10,6 +10,8 @@ import { CitySearchInput } from "../CitySearchInput";
 import { CitySearchResult } from "@/services/api/citySearch";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "@/components/DatePicker";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 interface Stop {
   id: string;
@@ -24,6 +26,8 @@ interface Step1Props {
 
 export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const [stops, setStops] = useState<Stop[]>([]);
   const [showStops, setShowStops] = useState(false);
   const [selectedDestinations, setSelectedDestinations] = useState<string[]>(
@@ -112,6 +116,23 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
       name: `Stop ${stops.length + 1} name`,
     };
     setStops([...stops, newStop]);
+  };
+
+  const handleNext = () => {
+    if (!isAuthenticated) {
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("itinerary_draft", JSON.stringify(tripData));
+          localStorage.setItem("auth_return_to", "/itinerary?step=1&resume=1&auto=1");
+        }
+      } catch (e) {
+        // ignore storage errors
+      }
+      const returnTo = encodeURIComponent("/itinerary?step=1&resume=1&auto=1");
+      router.replace(`/sign-in?redirectReason=not_logged_in&returnTo=${returnTo}`);
+      return;
+    }
+    onNext();
   };
 
   const selectDestination = (destinationName: string) => {
@@ -267,8 +288,6 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
       setIsLocating(false);
     }
   };
-
- 
 
   return (
     <div className="space-y-8">
@@ -445,7 +464,7 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
       
       <div className="pt-4 flex justify-end">
         <Button
-          onClick={onNext}
+          onClick={handleNext}
           className=" bg-pink-500 hover:bg-pink-600 text-white "
         >
           Next

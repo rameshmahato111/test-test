@@ -71,6 +71,24 @@ const SignInPage = () => {
         }
     }, [state]);
 
+    React.useEffect(() => {
+        try {
+            if (typeof window !== 'undefined') {
+                const params = new URLSearchParams(window.location.search);
+                const reason = params.get('redirectReason');
+                if (reason === 'not_logged_in') {
+                    toast({
+                        title: 'You are not logged in user',
+                        variant: 'error',
+                    });
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return (
         <Wrapper className='bg-background min-h-screen flex items-center justify-center'>
 
