@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapPin, Calendar, Plus, Trash } from "lucide-react";
@@ -10,8 +10,9 @@ import { CitySearchInput } from "../CitySearchInput";
 import { CitySearchResult } from "@/services/api/citySearch";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "@/components/DatePicker";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { saveToLocalStorage } from "@/lib/localStorage";
 
 interface Stop {
   id: string;
@@ -26,9 +27,10 @@ interface Step1Props {
 
 export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [stops, setStops] = useState<Stop[]>([]);
+  const [stopCities, setStopCities] = useState<Array<CitySearchResult | null>>([]);
   const [showStops, setShowStops] = useState(false);
   const [selectedDestinations, setSelectedDestinations] = useState<string[]>(
     []
@@ -51,6 +53,11 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
     tripData.starting_date ? new Date(tripData.starting_date) : null
   );
   const [selectedWeek, setSelectedWeek] = useState<string>("");
+  const [errors, setErrors] = useState<{
+    starting_location?: string;
+    destination_location?: string;
+    starting_date?: string;
+  }>({});
 
   const destinations = [
     { name: "Paris", coordinates: { latitude: 48.8566, longitude: 2.3522 } },
@@ -69,6 +76,11 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
     if (date) {
       updateTripData({ starting_date: date.toISOString().split("T")[0] });
     }
+  };
+
+  const removeStop = (index: number, id: string) => {
+    setStops((prev) => prev.filter((s) => s.id !== id));
+    setStopCities((prev) => prev.filter((_, i) => i !== index));
   };
 
   // End date removed for now
@@ -100,6 +112,7 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
     updateTripData({
       starting_date: startDate.toISOString().split("T")[0],
     });
+    setErrors((prev) => ({ ...prev, starting_date: undefined }));
   };
   const distanceOptions = [
     { label: "Short Drive", distance: "300 km", value: "short" },
@@ -113,27 +126,32 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
     }
     const newStop = {
       id: (stops.length + 1).toString(),
-      name: `Stop ${stops.length + 1} name`,
+      name: `Stop ${stops.length + 1}`,
     };
-    setStops([...stops, newStop]);
+    setStops((prev) => [...prev, newStop]);
+    setStopCities((prev) => [...prev, null]);
   };
 
-  const handleNext = () => {
-    if (!isAuthenticated) {
-      try {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("itinerary_draft", JSON.stringify(tripData));
-          localStorage.setItem("auth_return_to", "/itinerary?step=1&resume=1&auto=1");
-        }
-      } catch (e) {
-        // ignore storage errors
-      }
-      const returnTo = encodeURIComponent("/itinerary?step=1&resume=1&auto=1");
-      router.replace(`/sign-in?redirectReason=not_logged_in&returnTo=${returnTo}`);
-      return;
-    }
-    onNext();
+  const handleStopCitySelect = (index: number, city: CitySearchResult | null) => {
+    setStopCities((prev) => {
+      const next = [...prev];
+      next[index] = city;
+      return next;
+    });
   };
+
+  // Sync mapped stops to parent when local stopCities change
+  useEffect(() => {
+    const mapped = stopCities
+      .filter((c): c is CitySearchResult => !!c)
+      .map((c) => ({
+        latitude: c.coordinates.latitude,
+        longitude: c.coordinates.longitude,
+        name: c.display_name || c.name,
+      }));
+    updateTripData({ stops: mapped });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopCities]);
 
   const selectDestination = (destinationName: string) => {
     // Find the destination object with coordinates
@@ -174,6 +192,7 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
           }
         : tripData.starting_point,
     });
+    setErrors((prev) => ({ ...prev, starting_location: undefined }));
   };
 
   const handleDestinationCitySelect = (city: CitySearchResult | null) => {
@@ -189,6 +208,7 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
           }
         : tripData.destination_point,
     });
+    setErrors((prev) => ({ ...prev, destination_location: undefined }));
   };
 
   const handleDistanceSelection = (distance: string) => {
@@ -245,6 +265,7 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
           longitude,
         },
       });
+      setErrors((prev) => ({ ...prev, starting_location: undefined }));
 
       toast({
         title: "Location Found",
@@ -289,6 +310,41 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
     }
   };
 
+  const handleNext = () => {
+    const newErrors: typeof errors = {};
+    if (!startingLocation || !tripData.starting_point?.latitude || !tripData.starting_point?.longitude) {
+      newErrors.starting_location = "Start location is required";
+    }
+    if (!destinationLocation || !tripData.destination_point?.latitude || !tripData.destination_point?.longitude) {
+      newErrors.destination_location = "Destination is required";
+    }
+    if (!startDate || !tripData.starting_date) {
+      newErrors.starting_date = "Start date is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    if (!isAuthenticated) {
+      try {
+        saveToLocalStorage("itinerary_step1_draft", JSON.stringify(tripData));
+        saveToLocalStorage("itinerary_resume_after_login", "true");
+      } catch (e) {
+        console.error("Failed to save draft before login:", e);
+      }
+      toast({
+        title: "Not logged in",
+        description: "You are not logged in user",
+        variant: "destructive",
+      });
+      router.push("/login");
+      return;
+    }
+    onNext();
+  };
+
   return (
     <div className="space-y-8">
       {/* Start From */}
@@ -303,6 +359,9 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
             onChange={handleStartingCitySelect}
           />
         </div>
+        {errors.starting_location && (
+          <p className="text-sm text-red-500 my-1">{errors.starting_location}</p>
+        )}
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -329,6 +388,9 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
             onChange={handleDestinationCitySelect}
           />
         </div>
+        {errors.destination_location && (
+          <p className="text-sm text-red-500 my-1">{errors.destination_location}</p>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {destinations.map((destination) => (
@@ -357,18 +419,18 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
                 </span>
                 <div className="relative flex-1">
                   <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder={stop.name}
-                    className="pl-9 h-10 border-gray-200 text-sm"
-                    defaultValue={stop.name}
-                  />
+                  <div className="pl-9">
+                    <CitySearchInput
+                      placeholder={stop.name}
+                      value={stopCities[index]?.display_name || stopCities[index]?.name || ""}
+                      onChange={(city) => handleStopCitySelect(index, city)}
+                    />
+                  </div>
                 </div>
                 {/* Delete Button */}
                 <button
                   type="button"
-                  onClick={() =>
-                    setStops(stops.filter((s) => s.id !== stop.id))
-                  }
+                  onClick={() => removeStop(index, stop.id)}
                   className="p-1 text-gray-400 hover:text-pink-500"
                 >
                   <Trash className="w-8 h-8 text-white bg-red-500 rounded-full p-2" />
@@ -406,6 +468,7 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
                 updateTripData({
                   starting_date: picked.toISOString().split("T")[0],
                 });
+                setErrors((prev) => ({ ...prev, starting_date: undefined }));
               }
               // Clear week selection when custom dates are selected
               if (picked) {
@@ -416,6 +479,9 @@ export function Step1({ tripData, updateTripData, onNext }: Step1Props) {
             placeholderSecond=""
           />
         </div>
+        {errors.starting_date && (
+          <p className="text-sm text-red-500 my-1">{errors.starting_date}</p>
+        )}
 
         {/* Week Selection Buttons */}
         <div className="flex gap-2">

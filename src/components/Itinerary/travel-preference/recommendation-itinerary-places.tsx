@@ -53,7 +53,14 @@ export default function RecommendationItineraryPlaces({ items = [], heading = "M
     if (itemsAttractions?.length) groups.push(itemsAttractions)
     if (itemsNightlife?.length) groups.push(itemsNightlife)
     if (itemsRestaurants?.length) groups.push(itemsRestaurants)
-    if (groups.length) return groups.flat()
+    if (groups.length) {
+      // Flatten and ensure unique keys by using a Map
+      const uniquePlaces = new Map<string, Place>()
+      groups.flat().forEach(place => {
+        uniquePlaces.set(place.id, place)
+      })
+      return Array.from(uniquePlaces.values())
+    }
     return items
   }, [items, itemsAttractions, itemsNightlife, itemsRestaurants])
 

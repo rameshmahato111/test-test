@@ -85,20 +85,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         router.push("/opt-verify");
         return;
       }
-      // If we have a stored post-login destination, honor it first
-      try {
-        const returnTo = typeof window !== 'undefined' ? localStorage.getItem('auth_return_to') : null;
-        if (returnTo) {
-          saveToLocalStorage(USER_KEY, JSON.stringify(response));
-          localStorage.removeItem('auth_return_to');
-          router.push(returnTo);
-          return;
-        }
-      } catch (e) {
-        // ignore storage errors
-      }
       // Check if user has any interests
       const interests = await InterestService.getInterests(newToken);
+      // Always save user data once we have it
+      saveToLocalStorage(USER_KEY, JSON.stringify(response));
+
+      // If itinerary resume flag is set, prioritize returning to itinerary flow
+      const resumeFlag = await getFromLocalStorage("itinerary_resume_after_login");
+      if (resumeFlag === "true") {
+        router.push("/itinerary?step=1");
+        return;
+      }
+
       if (
         interests &&
         (!interests?.segment || interests.segment.length === 0)
@@ -106,8 +104,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         // First time user - redirect to pick interests
         router.push("/pick-interest");
       } else {
-        // Existing user with interests - save user data and redirect to home
-        saveToLocalStorage(USER_KEY, JSON.stringify(response));
+        // Existing user with interests - redirect to home
         router.push("/");
       }
     } catch (error) {

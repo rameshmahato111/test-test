@@ -10,7 +10,7 @@ import {
   
   ChevronDownIcon,
   MapPin,
- 
+  Loader2,
   Scaling as Walking,
   
 } from "lucide-react";
@@ -28,6 +28,7 @@ import { HotelDetailsModal } from "./travel-preference/itinerary-card-details";
 
 import { DepartureTimeSelector } from "./departure-time";
 import ItineraryEngagement from "@/components/Itinerary/itinerary-engagement";
+import { itineraryApi, type EnrichDayResponse } from "@/services/api/itinerary";
 
 // API Data Interfaces
 interface ApiCity {
@@ -128,6 +129,7 @@ interface ApiDailyPlan {
 
 interface RealApiResponse {
   success: boolean;
+  itinerary_id?: string;
   // Existing normalized structure used by the UI
   itinerary_data: {
     total_distance: number;
@@ -175,6 +177,7 @@ interface ItineraryStop {
   // For alternatives: source checkpoint index and activity type
   cpIndex?: number;
   cpActivityType?: string;
+  order?: number;
 }
 
 interface MapLocation {
@@ -201,6 +204,13 @@ export function TravelItinerary() {
   const [error, setError] = useState<string | null>(null);
   const [likedStops, setLikedStops] = useState<Record<string, boolean>>({});
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
+  const [dayLoadingStates, setDayLoadingStates] = useState<Record<string, boolean>>({});
+  const [enrichedDayData, setEnrichedDayData] = useState<Record<string, EnrichDayResponse>>({});
+  const [dayRecommendations, setDayRecommendations] = useState<Record<string, {
+    attractions: any[];
+    nightlife: any[];
+    restaurants: any[];
+  }>>({});
   const [selectedLocation, setSelectedLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -639,6 +649,7 @@ export function TravelItinerary() {
 
           normalized = {
             success: true,
+            itinerary_id: parsedData.data.itinerary_id || parsedData.itinerary_id,
             itinerary_data: {
               total_distance: dailyPlan.reduce(
                 (sum, d) => sum + (d.day_total_distance || 0),
@@ -688,6 +699,8 @@ export function TravelItinerary() {
           );
           setExpandedDays(initialExpanded);
         }
+
+        // Note: API calls for enriched day data will happen only when user clicks chevron down button
       } catch (error) {
         console.error("[v0] Error parsing stored itinerary data:", error);
         setError(
@@ -1356,8 +1369,234 @@ export function TravelItinerary() {
     return result;
   };
 
+
+
+  // Convert enriched day data to stops format and extract recommendations
+  const convertEnrichedDayToStops = (enrichedData: EnrichDayResponse): {
+    stops: Record<string, ItineraryStop[]>;
+    recommendations: Record<string, {
+      attractions: any[];
+      nightlife: any[];
+      restaurants: any[];
+    }>;
+  } => {
+    const stopsResult: Record<string, ItineraryStop[]> = {};
+    const recommendationsResult: Record<string, {
+      attractions: any[];
+      nightlife: any[];
+      restaurants: any[];
+    }> = {};
+    
+    const dayKey = `day${enrichedData.day_number}`;
+    const stops: ItineraryStop[] = [];
+    let dayRecommendations = {
+      attractions: [] as any[],
+      nightlife: [] as any[],
+      restaurants: [] as any[],
+    };
+
+    try {
+      // Check if we have valid data structure
+      if (!enrichedData?.data?.checkpoints || !Array.isArray(enrichedData.data.checkpoints)) {
+        console.warn(`[convertEnrichedDayToStops] Invalid data structure for day ${enrichedData.day_number}`);
+        stopsResult[dayKey] = [];
+        recommendationsResult[dayKey] = dayRecommendations;
+        return { stops: stopsResult, recommendations: recommendationsResult };
+      }
+
+      enrichedData.data.checkpoints.forEach((checkpoint, index) => {
+        // Skip driving checkpoints
+        if (checkpoint.is_driving) {
+          return;
+        }
+
+        // Calculate travel distance and time from previous checkpoint
+        let travelTime = "";
+        let travelDistance = "";
+        
+        if (index > 0) {
+          const prevCheckpoint = enrichedData.data.checkpoints[index - 1];
+          if (prevCheckpoint && !prevCheckpoint.is_driving) {
+            // Calculate distance between consecutive non-driving checkpoints
+            const prevDistanceFromStart = prevCheckpoint.distance_from_start_km || 0;
+            const currentDistanceFromStart = checkpoint.distance_from_start_km || 0;
+            const segmentDistance = currentDistanceFromStart - prevDistanceFromStart;
+            
+            if (segmentDistance > 0) {
+              // Estimate travel time based on distance (assuming average speed of 60 km/h)
+              const estimatedTimeMinutes = Math.round((segmentDistance / 60) * 60);
+              travelTime = `${estimatedTimeMinutes} min`;
+              travelDistance = `(${Math.round(segmentDistance * 10) / 10} km)`;
+            }
+          }
+        }
+
+        let stop: ItineraryStop | null = null;
+
+        // Handle activities
+        if (checkpoint.activities && checkpoint.activities.length > 0) {
+          const activity = checkpoint.activities[0];
+          if (activity && activity.displayName) {
+            stop = {
+              id: `${dayKey}-${checkpoint.index}`,
+              time: checkpoint.time || "",
+              title: activity.displayName,
+              duration: checkpoint.duration || "",
+              address: activity.formattedAddress || "",
+              travelTime: travelTime,
+              travelDistance: travelDistance,
+              type: "contact",
+              latitude: activity.location?.latitude,
+              longitude: activity.location?.longitude,
+              description: activity.description || "",
+              image: activity.photos?.name ? photoUrlFrom(activity.photos.name) : "/images/card-1.png",
+              rating: activity.rating || 0,
+              price: activity.pricingRange ? 
+                `${activity.pricingRange.startPrice?.currencyCode || ""} ${activity.pricingRange.startPrice?.units || ""} - ${activity.pricingRange.endPrice?.units || ""}` : 
+                "",
+              order: index + 1,
+              cpActivityType: checkpoint.activity || "",
+              cpIndex: checkpoint.index - 1, // Add cpIndex for alternative suggestions
+            };
+          }
+        }
+        // Handle restaurants
+        else if ((checkpoint as any).restaurants && (checkpoint as any).restaurants.length > 0) {
+          const restaurant = (checkpoint as any).restaurants[0];
+          if (restaurant && restaurant.displayName) {
+            stop = {
+              id: `${dayKey}-${checkpoint.index}`,
+              time: checkpoint.time || "",
+              title: restaurant.displayName,
+              duration: checkpoint.duration || "",
+              address: restaurant.formattedAddress || "",
+              travelTime: travelTime,
+              travelDistance: travelDistance,
+              type: "contact",
+              latitude: restaurant.location?.latitude,
+              longitude: restaurant.location?.longitude,
+              description: restaurant.description || "",
+              image: restaurant.photos?.name ? photoUrlFrom(restaurant.photos.name) : "/images/card-1.png",
+              rating: restaurant.rating || 0,
+              price: restaurant.pricingRange ? 
+                `${restaurant.pricingRange.startPrice?.currencyCode || ""} ${restaurant.pricingRange.startPrice?.units || ""} - ${restaurant.pricingRange.endPrice?.units || ""}` : 
+                "",
+              order: index + 1,
+              cpActivityType: checkpoint.activity || "",
+              cpIndex: checkpoint.index - 1, // Add cpIndex for alternative suggestions
+            };
+          }
+        }
+        // Handle hotels
+        else if ((checkpoint as any).hotels && (checkpoint as any).hotels.length > 0) {
+          const hotel = (checkpoint as any).hotels[0];
+          if (hotel && hotel.name) {
+            stop = {
+              id: `${dayKey}-${checkpoint.index}`,
+              time: checkpoint.time || "",
+              title: hotel.name,
+              duration: checkpoint.duration || "",
+              address: hotel.city || "",
+              travelTime: travelTime,
+              travelDistance: travelDistance,
+              type: "contact",
+              latitude: hotel.location?.latitude,
+              longitude: hotel.location?.longitude,
+              description: hotel.description || "",
+              image: hotel.image || "/images/card-1.png",
+              rating: 0,
+              price: hotel.minPrice ? `${hotel.currency} ${hotel.minPrice}` : "",
+              order: index + 1,
+              cpActivityType: checkpoint.activity || "",
+              cpIndex: checkpoint.index - 1, // Add cpIndex for alternative suggestions
+            };
+          }
+        }
+
+        if (stop) {
+          stops.push(stop);
+        }
+
+        // Extract hotel area suggestions from the last checkpoint (usually the hotel checkpoint)
+        if ((checkpoint as any).hotel_area_suggestions) {
+          const suggestions = (checkpoint as any).hotel_area_suggestions;
+          if (suggestions.attractions) {
+            dayRecommendations.attractions = suggestions.attractions;
+          }
+          if (suggestions.nightlife) {
+            dayRecommendations.nightlife = suggestions.nightlife;
+          }
+          if (suggestions.restaurants) {
+            dayRecommendations.restaurants = suggestions.restaurants;
+          }
+        }
+      });
+
+      stopsResult[dayKey] = stops;
+      recommendationsResult[dayKey] = dayRecommendations;
+    } catch (error) {
+      console.error(`[convertEnrichedDayToStops] Error processing day ${enrichedData.day_number}:`, error);
+      stopsResult[dayKey] = [];
+      recommendationsResult[dayKey] = dayRecommendations;
+    }
+    
+    return { stops: stopsResult, recommendations: recommendationsResult };
+  };
+
+  // Helper function to convert API recommendation data to Place format
+  const convertRecommendationsToPlaces = (recommendations: any[], dayKey: string): RecPlace[] => {
+    return recommendations.map((rec, index) => ({
+      id: `${dayKey}-rec-${index}`,
+      title: rec.displayName || rec.name || "Unknown Place",
+      rating: rec.rating || 0,
+      image: rec.photos?.name ? photoUrlFrom(rec.photos.name) : "/images/card-1.png",
+      address: rec.formattedAddress || "",
+      description: rec.description || "",
+      priceLevel: rec.priceLevel || null,
+      types: rec.types || [],
+      websiteUri: rec.websiteUri || "",
+      googleMapsUri: rec.googleMapsUri || "",
+      primaryType: rec.primaryType || "",
+      openingHours: rec.openingHours || null,
+      parkingOptions: rec.parkingOptions || null,
+      pricingRange: rec.pricingRange || null,
+      source: rec.source || "google_places",
+    }));
+  };
+
   const dayStops = useMemo(() => {
-    // Prefer building from raw_daily_schedules to ensure titles come from checkpoints.activities[0].displayName
+    // First, check if we have enriched data for any days and use that
+    const enrichedStops: Record<string, ItineraryStop[]> = {};
+    Object.entries(enrichedDayData).forEach(([dayKey, enrichedData]) => {
+      const { stops } = convertEnrichedDayToStops(enrichedData);
+      Object.assign(enrichedStops, stops);
+    });
+
+    // If we have enriched data, merge it with the base data
+    if (Object.keys(enrichedStops).length > 0) {
+      // Get base stops from original data
+      let baseStops: Record<string, ItineraryStop[]> = {};
+      
+      if (
+        apiData?.itinerary_data?.raw_daily_schedules &&
+        Array.isArray(apiData.itinerary_data.raw_daily_schedules)
+      ) {
+        const stops = convertRawSchedulesToStops(
+          apiData.itinerary_data.raw_daily_schedules
+        );
+        if (Object.keys(stops).length > 0) baseStops = stops;
+      } else if (
+        apiData?.itinerary_data?.daily_plan &&
+        Array.isArray(apiData.itinerary_data.daily_plan)
+      ) {
+        baseStops = convertApiToStops(apiData.itinerary_data.daily_plan);
+      }
+
+      // Merge enriched data with base data (enriched data takes precedence)
+      return { ...baseStops, ...enrichedStops };
+    }
+
+    // Fallback to original logic if no enriched data
     if (
       apiData?.itinerary_data?.raw_daily_schedules &&
       Array.isArray(apiData.itinerary_data.raw_daily_schedules)
@@ -1377,7 +1616,7 @@ export function TravelItinerary() {
     }
 
     return convertApiToStops(apiData.itinerary_data.daily_plan);
-  }, [apiData]);
+  }, [apiData, enrichedDayData]);
 
  
 
@@ -1435,7 +1674,32 @@ export function TravelItinerary() {
     return { title, address, image, rating, priceText, description: desc };
   };
 
-  const toggleDay = (day: string) => {
+  const toggleDay = async (day: string) => {
+    const isCurrentlyExpanded = expandedDays[day];
+    
+    // If expanding and we don't have enriched data for this day, fetch it
+    if (!isCurrentlyExpanded && !enrichedDayData[day] && apiData?.itinerary_id) {
+      const dayNumber = parseInt(day.replace('day', ''));
+      
+      // Set loading state
+      setDayLoadingStates(prev => ({ ...prev, [day]: true }));
+      
+      try {
+        const enrichedData = await itineraryApi.enrichDay(apiData.itinerary_id, dayNumber);
+        
+        setEnrichedDayData(prev => ({ ...prev, [day]: enrichedData }));
+        
+        // Extract and store recommendations
+        const { recommendations } = convertEnrichedDayToStops(enrichedData);
+        setDayRecommendations(prev => ({ ...prev, ...recommendations }));
+      } catch (error) {
+        console.error(`Failed to fetch enriched data for ${day}:`, error);
+        // You might want to show an error message to the user here
+      } finally {
+        setDayLoadingStates(prev => ({ ...prev, [day]: false }));
+      }
+    }
+    
     setExpandedDays((prev) => ({
       ...prev,
       [day]: !prev[day],
@@ -1835,10 +2099,20 @@ export function TravelItinerary() {
             {Object.entries(dayStops).map(([dayKey, stops]) => {
               const dayNumber = dayKey.replace("day", "");
               // Build recommendations for this day from raw_daily_schedules
-              const rawSched: any =
+              let rawSched: any =
                 apiData?.itinerary_data?.raw_daily_schedules?.[
                   Number(dayNumber) - 1
                 ];
+              
+              // If we have enriched data for this day, use it for raw checkpoint data
+              if (enrichedDayData[dayKey] && enrichedDayData[dayKey].data?.checkpoints) {
+                rawSched = {
+                  ...rawSched,
+                  checkpoints: enrichedDayData[dayKey].data.checkpoints,
+                  hotel_area_suggestions: enrichedDayData[dayKey].data.checkpoints
+                    .find((cp: any) => cp.hotel_area_suggestions)?.hotel_area_suggestions
+                };
+              }
               // Prefer hotel_area_suggestions from API when available
               // Build categorized recommendation arrays
               let recAttr: RecPlace[] = [];
@@ -1968,12 +2242,16 @@ export function TravelItinerary() {
               return (
                 <div key={dayKey} className="mb-6">
                   <div className="flex items-center gap-2 mb-6">
-                    <ChevronDownIcon
-                      className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform cursor-pointer ${
-                        expandedDays[dayKey] ? "rotate-0" : "-rotate-90"
-                      }`}
-                      onClick={() => toggleDay(dayKey)}
-                    />
+                    {dayLoadingStates[dayKey] ? (
+                      <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 animate-spin" />
+                    ) : (
+                      <ChevronDownIcon
+                        className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform cursor-pointer ${
+                          expandedDays[dayKey] ? "rotate-0" : "-rotate-90"
+                        }`}
+                        onClick={() => toggleDay(dayKey)}
+                      />
+                    )}
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                       Day {dayNumber}
                     </h2>
@@ -2251,17 +2529,37 @@ export function TravelItinerary() {
                           </div>
                         ))}
                       {/* Recommendations carousel always at end of day */}
-                     
-                      {recItemsWithFallback.length > 0 && (
-                       
-                        <RecommendationItineraryPlaces
-                          items={recItemsWithFallback}
-                          itemsAttractions={recAttr}
-                          itemsNightlife={recNight}
-                          itemsRestaurants={recRest}
-                          heading={recHeading}
-                        />
-                      )}
+                      {(() => {
+                        // Check if we have enriched recommendations for this day
+                        const dayRecs = dayRecommendations[dayKey];
+                        if (dayRecs && (dayRecs.attractions.length > 0 || dayRecs.nightlife.length > 0 || dayRecs.restaurants.length > 0)) {
+                          // Use enriched day recommendations
+                          const enrichedAttractions = convertRecommendationsToPlaces(dayRecs.attractions, dayKey);
+                          const enrichedNightlife = convertRecommendationsToPlaces(dayRecs.nightlife, dayKey);
+                          const enrichedRestaurants = convertRecommendationsToPlaces(dayRecs.restaurants, dayKey);
+                          
+                          return (
+                            <RecommendationItineraryPlaces
+                              itemsAttractions={enrichedAttractions}
+                              itemsNightlife={enrichedNightlife}
+                              itemsRestaurants={enrichedRestaurants}
+                              heading="Near your hotel area"
+                            />
+                          );
+                        } else if (recItemsWithFallback.length > 0) {
+                          // Fallback to original recommendations
+                          return (
+                            <RecommendationItineraryPlaces
+                              items={recItemsWithFallback}
+                              itemsAttractions={recAttr}
+                              itemsNightlife={recNight}
+                              itemsRestaurants={recRest}
+                              heading={recHeading}
+                            />
+                          );
+                        }
+                        return null;
+                      })()}
                       </div>
                   
                    

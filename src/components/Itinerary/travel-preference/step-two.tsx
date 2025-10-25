@@ -57,7 +57,7 @@ export function Step2({ tripData, updateTripData, onNext, onBack }: Step2Props) 
   ]
 
   const transportModes = [
-    { id: "bike", label: "Motorbike", icon: Bike },
+    { id: "Motorbike", label: "Motorbike", icon: Bike },
     { id: "Car", label: "Car", icon: Car },
     { id: "RV", label: "RV", icon: Truck },
     { id: "Train", label: "Train", icon: Train },

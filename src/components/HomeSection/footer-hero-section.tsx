@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-sky-200 via-sky-100 to-sky-50 overflow-hidden">
+    <main className="relative min-h-screen bg-gradient-to-br from-sky-200 via-sky-100 to-sky-50 overflow-hidden">
       {/* Decorative clouds */}
       <div className="absolute top-8 left-12 w-20 h-12 bg-white rounded-full opacity-70 blur-sm" />
       <div className="absolute top-32 right-20 w-24 h-14 bg-white rounded-full opacity-60 blur-sm" />

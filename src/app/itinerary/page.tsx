@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense, useEffect, useRef } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { TravelItinerary } from "@/components/Itinerary/itinerary";
 import { Step1 } from "@/components/Itinerary/travel-preference/step-one-modified";
@@ -11,7 +11,7 @@ import RouteSelection, { type RouteOption } from "@/components/Itinerary/travel-
 import { MapPin, Users, Star } from "lucide-react"
 import { getHeaders } from "@/services/headers";
 import { useAuth } from "@/contexts/AuthContext";
-import { tokenKey } from "@/lib/localStorage";
+import { tokenKey, getFromLocalStorage, removeFromLocalStorage } from "@/lib/localStorage";
 export interface TripData {
   starting_point: { latitude: number; longitude: number }
   destination_point: { latitude: number; longitude: number }
@@ -27,6 +27,7 @@ export interface TripData {
   selected_date: string
   starting_location: string
   destination_location: string
+  stops?: Array<{ latitude: number; longitude: number; name?: string }>
   children?: number,
   adults?: number,
   numberOfRooms?: number,
@@ -63,7 +64,6 @@ function RoadTripPlannerContent() {
   const searchParams = useSearchParams()
   const currentStep = Number.parseInt(searchParams.get("step") || "1")
   const showResults = searchParams.get("results") === "true"
-  const auto = searchParams.get("auto") === "1"
 
   const [tripData, setTripData] = useState<TripData>({
     starting_point: { latitude: 0, longitude: 0 },
@@ -82,47 +82,16 @@ function RoadTripPlannerContent() {
     destination_location: ""
   })
 
-  // Restore any saved draft from localStorage (e.g., when user was redirected to login)
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const draft = localStorage.getItem('itinerary_draft')
-        if (draft) {
-          const parsed = JSON.parse(draft)
-          setTripData((prev) => ({ ...prev, ...parsed }))
-          localStorage.removeItem('itinerary_draft')
-        }
-      }
-    } catch (e) {
-      // ignore parse/storage errors
-    }
-  }, [])
-
   const [isLoading, setIsLoading] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [routeOptions, setRouteOptions] = useState<RouteOption[]>([])
   const [showRouteSelection, setShowRouteSelection] = useState(false)
   const { token: ctxToken, isAuthenticated } = useAuth();
-  const autoTriggeredRef = useRef(false)
 
   const updateTripData = (data: Partial<TripData>) => {
     setTripData((prev) => ({ ...prev, ...data }))
     setValidationErrors([])
   }
-
-  // If returning from login with a filled draft and auto flag, auto-advance by calling possible routes on step 1
-  useEffect(() => {
-    if (auto && currentStep === 1 && !autoTriggeredRef.current) {
-      const errs = validateStep(1)
-      if (errs.length === 0) {
-        autoTriggeredRef.current = true
-        // triggers getPossibleRoutes via nextStep for step 1
-        nextStep()
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auto, currentStep, tripData])
-
 
   // Update step states for progress bar
   const updatedSteps = steps.map((step, index) => ({
@@ -167,6 +136,9 @@ function RoadTripPlannerContent() {
         longitude: tripData.destination_point.longitude,
       },
       daily_drive_distance: (tripData.daily_drive_distance || "MEDIUM").toUpperCase(),
+      ...(Array.isArray(tripData.stops) && tripData.stops.length > 0
+        ? { via_points: tripData.stops.map((s) => ({ latitude: s.latitude, longitude: s.longitude })) }
+        : {}),
     }
 
     try {
@@ -251,6 +223,41 @@ function RoadTripPlannerContent() {
     router.push(`?step=2`)
   }
 
+  const [resumeHandled, setResumeHandled] = useState(false)
+  const [autoAdvanced, setAutoAdvanced] = useState(false)
+
+  useEffect(() => {
+    const run = async () => {
+      if (resumeHandled) return
+      if (!isAuthenticated) return
+      const resume = await getFromLocalStorage("itinerary_resume_after_login")
+      if (resume !== "true") return
+      const draftStr = await getFromLocalStorage("itinerary_step1_draft")
+      if (draftStr) {
+        try {
+          const draft = JSON.parse(draftStr)
+          setTripData((prev) => ({ ...prev, ...draft }))
+        } catch {}
+      }
+      removeFromLocalStorage("itinerary_step1_draft")
+      removeFromLocalStorage("itinerary_resume_after_login")
+      setResumeHandled(true)
+    }
+    run()
+  }, [isAuthenticated, resumeHandled])
+
+  useEffect(() => {
+    if (!resumeHandled) return
+    if (autoAdvanced) return
+    if (currentStep !== 1) return
+    const errs = validateStep(1)
+    if (errs.length === 0) {
+      setAutoAdvanced(true)
+      // Proceed exactly as if user clicked Next on Step 1
+      nextStep()
+    }
+  }, [resumeHandled, autoAdvanced, currentStep, tripData])
+
   const nextStep = async () => {
     const errors = validateStep(currentStep)
     if (errors.length > 0) {
@@ -298,6 +305,12 @@ function RoadTripPlannerContent() {
         mode_of_transport: tripData.mode_of_transport,
         interests: Array.isArray(tripData.interests) ? tripData.interests : (typeof (tripData as any).interests === 'string' ? (tripData as any).interests.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
         daily_drive_distance: (tripData.daily_drive_distance || "medium").toLowerCase(),
+        ...(Array.isArray(tripData.stops) && tripData.stops.length > 0
+          ? { via_points: tripData.stops.map((s) => ({ latitude: s.latitude, longitude: s.longitude })) }
+          : {}),
+        ...(Array.isArray(tripData.stops) && tripData.stops.length > 0
+          ? { stops: tripData.stops.map((s) => ({ latitude: s.latitude, longitude: s.longitude, name: s.name || '' })) }
+          : {}),
       }
 
       const urlCreate = "https://api-v2.exploreden.com/itinify/road-trip/create_itinerary/"
